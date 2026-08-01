@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./Auth.css";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "https://resume-builder-project-ww7m.onrender.com";
 
 function Signup() {
   const navigate = useNavigate();
