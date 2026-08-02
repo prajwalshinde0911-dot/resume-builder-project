@@ -11,11 +11,28 @@ function Dashboard() {
   return (
     <div style={{ padding: "40px", fontFamily: "Segoe UI, sans-serif" }}>
       <h1>Welcome to your Dashboard 🎉</h1>
-      <p>This is where your resumes will live once we build the resume builder.</p>
+      <p>Build and manage your resume below.</p>
+
+      <button
+        onClick={() => navigate("/resume")}
+        style={{
+          marginTop: "10px",
+          marginRight: "10px",
+          padding: "10px 20px",
+          background: "#4f46e5",
+          color: "white",
+          border: "none",
+          borderRadius: "8px",
+          cursor: "pointer",
+        }}
+      >
+        Build / Edit Resume
+      </button>
+
       <button
         onClick={handleLogout}
         style={{
-          marginTop: "20px",
+          marginTop: "10px",
           padding: "10px 20px",
           background: "#dc2626",
           color: "white",
