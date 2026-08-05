@@ -1,3 +1,4 @@
+import json
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -51,6 +52,38 @@ def login(user: schemas.UserCreate, db: Session = Depends(get_db)):
     return {"access_token": access_token, "token_type": "bearer"}
 
 
+# ---------- Helpers to convert between JSON text (DB) and lists (API) ----------
+
+LIST_FIELDS = ["experience", "education", "skills", "projects", "certifications"]
+
+
+def resume_to_db_dict(resume: resume_schemas.ResumeCreate) -> dict:
+    data = resume.dict()
+    for field in LIST_FIELDS:
+        value = data.get(field) or []
+        # Convert list of pydantic dicts (or strings) into a JSON string for storage
+        data[field] = json.dumps(value)
+    return data
+
+
+def resume_from_db(resume_obj: resume_models.Resume) -> dict:
+    data = {
+        "id": resume_obj.id,
+        "user_id": resume_obj.user_id,
+        "full_name": resume_obj.full_name,
+        "email": resume_obj.email,
+        "phone": resume_obj.phone,
+        "summary": resume_obj.summary,
+        "github_url": resume_obj.github_url,
+        "linkedin_url": resume_obj.linkedin_url,
+        "portfolio_url": resume_obj.portfolio_url,
+    }
+    for field in LIST_FIELDS:
+        raw_value = getattr(resume_obj, field)
+        data[field] = json.loads(raw_value) if raw_value else []
+    return data
+
+
 # ---------- Resume endpoints ----------
 
 @app.post("/resumes", response_model=resume_schemas.ResumeOut)
@@ -59,11 +92,12 @@ def create_resume(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    new_resume = resume_models.Resume(**resume.dict(), user_id=current_user.id)
+    db_data = resume_to_db_dict(resume)
+    new_resume = resume_models.Resume(**db_data, user_id=current_user.id)
     db.add(new_resume)
     db.commit()
     db.refresh(new_resume)
-    return new_resume
+    return resume_from_db(new_resume)
 
 
 @app.get("/resumes", response_model=list[resume_schemas.ResumeOut])
@@ -71,9 +105,10 @@ def get_my_resumes(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    return db.query(resume_models.Resume).filter(
+    resumes = db.query(resume_models.Resume).filter(
         resume_models.Resume.user_id == current_user.id
     ).all()
+    return [resume_from_db(r) for r in resumes]
 
 
 @app.get("/resumes/{resume_id}", response_model=resume_schemas.ResumeOut)
@@ -88,7 +123,7 @@ def get_resume(
     ).first()
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
-    return resume
+    return resume_from_db(resume)
 
 
 @app.put("/resumes/{resume_id}", response_model=resume_schemas.ResumeOut)
@@ -105,9 +140,10 @@ def update_resume(
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
 
-    for key, value in updated.dict().items():
+    db_data = resume_to_db_dict(updated)
+    for key, value in db_data.items():
         setattr(resume, key, value)
 
     db.commit()
     db.refresh(resume)
-    return resume
+    return resume_from_db(resume)
